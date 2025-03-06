@@ -219,6 +219,7 @@
     <Compile Include="Areas\HelpPage\SampleGeneration\SampleDirection.cs" />
     <Compile Include="Areas\HelpPage\SampleGeneration\TextSample.cs" />
     <Compile Include="Areas\HelpPage\XmlDocumentationProvider.cs" />
+    <Compile Include="Controllers\CustomersController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\LoginController.cs" />
     <Compile Include="Controllers\MenuController.cs" />
@@ -257,6 +258,8 @@
     <Compile Include="Models\Product\Product.cs" />
     <Compile Include="Models\Product\ProductQueryRequest.cs" />
     <Compile Include="Models\Product\ProductRequest.cs" />
+    <Compile Include="Models\Sales\Customer.cs" />
+    <Compile Include="Models\Sales\CustomerSearchCriteria.cs" />
     <Compile Include="Models\SupplierRequest.cs" />
     <Compile Include="Models\SupplierSearchRequest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
