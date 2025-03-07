@@ -171,7 +171,6 @@ namespace FenjiuCapstone.Controllers
         #endregion
 
 
-
         // 4. 更新厂库
         [HttpPut]
         [Route("api/warehouse/update/{id}")]
@@ -189,7 +188,9 @@ namespace FenjiuCapstone.Controllers
 
                 int result = new DbAccess().Execute(sql);
                 if (result > 0)
+                {
                     return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "厂库更新成功" });
+                }
 
                 return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "更新失败" });
             }
