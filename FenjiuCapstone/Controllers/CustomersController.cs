@@ -133,8 +133,48 @@ namespace FenjiuCapstone.Controllers
                 return JsonResponseHelper.CreateJsonResponse(new { succes = false, message = ex.Message, help = ex.HelpLink });
             }   
         }
-
         #endregion
 
+        #region 4.更新买家信息 Created By Zane Xu 2025-3-7
+        /// <summary>
+        /// 更新买家信息（需要角色权限）
+        /// </summary>
+        /// <param name="RoleID">角色权限</param>
+        /// <param name="customerInfo">修改信息对象</param>
+        /// <returns></returns>
+        public HttpResponseMessage UpdateCustomer(int ? RoleID,Customer customerInfo)
+        {
+            try
+            {
+                // 判断是否为空
+                if (!RoleID.HasValue || customerInfo == null  )
+                {
+                    return JsonResponseHelper.CreateJsonResponse(new
+                    {
+                        success = false,
+                        error =  RoleID.HasValue? nameof(customerInfo) + "未上传": nameof(RoleID) +" AND"+ nameof(customerInfo)+"未上传"
+                    });
+                }
+                // 判断权限是否足够
+                //string QuerySql = $@"Select * Form ROLES WHERE RoleID  = {RoleID} ";
+                string UpdateSql = $@"UPDATE Customers SET CustomerName ={customerInfo.CustomerName},ContactNumber ={customerInfo.ContactNumber},Email ={customerInfo.Email},Address={customerInfo.Address} WHERE CustomerID ={customerInfo.CustomerID}";
+                //if (RoleID==Utils.EnumAccessModCustomer.ModCustomer.SaleManagers)
+                //{
+
+                //}
+                int rowAffect = new DbAccess().Execute(UpdateSql);
+                if (rowAffect>0)
+                {
+                    return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "修改成功" });
+                }
+                return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "插入失败" });
+            }
+            catch (Exception ex)
+            {
+
+                return JsonResponseHelper.CreateJsonResponse(new { success = false, message = ex.Message });
+            }
+        }
+        #endregion
     }
 }
