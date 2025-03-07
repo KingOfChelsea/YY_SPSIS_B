@@ -89,15 +89,52 @@ namespace FenjiuCapstone.Controllers
                     });
                 }
             }
+            // customers返回未空的判断改成或
             if (customers == null || customers.Count == 0 )
             {
                 return JsonResponseHelper.CreateJsonResponse(new { success = true, message =  "未能找到数据！" });
             }
-
+            
             return JsonResponseHelper.CreateJsonResponse(new { success = true, data = customers });
         }
         #endregion
 
+        #region 3.添加新买家信息 Created By Zane Xu 2025-3-7
+        /// <summary>
+        /// 添加新买家信息
+        /// </summary>
+        /// <param name="customer">客户对象</param>
+        /// <returns>添加成功</returns>
+        [HttpPost]
+        [Route("api/customers/create-customer")]
+        public HttpResponseMessage CreateCustomer([FromBody] Customer customer)
+        {
+            try
+            {
+                if (customer == null)
+                {
+                    return JsonResponseHelper.CreateJsonResponse(new { success = false, message = $"对象为定义{nameof(customer)}" });
+                }
+                // 插入Customers表 SQL语句
+                string sql = $@"INSERT INTO Customers (CustomerName, ContactNumber, Email, Address)
+                            VALUES ({(string.IsNullOrEmpty(customer.CustomerName) ? "未命名" : $"'{customer.CustomerName}'")}, 
+                                    {(string.IsNullOrEmpty(customer.ContactNumber) ? "未填写电话码" : $"'{customer.ContactNumber}'")},
+                                    {(string.IsNullOrEmpty(customer.Email) ? "未填写邮箱" : $"'{customer.Email}'")},                       
+                                    {(string.IsNullOrEmpty(customer.Address) ? "未填写地址" : $"'{customer.Address}'")})";
+                int result = new DbAccess().Execute(sql);
+                if (result > 0)
+                {
+                    return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "添加成功" });
+                }
+                return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "添加失败" });
+            }
+            catch (Exception ex)
+            {
+                return JsonResponseHelper.CreateJsonResponse(new { succes = false, message = ex.Message, help = ex.HelpLink });
+            }   
+        }
+
+        #endregion
 
     }
 }
