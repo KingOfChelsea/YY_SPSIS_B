@@ -142,6 +142,8 @@ namespace FenjiuCapstone.Controllers
         /// <param name="RoleID">角色权限</param>
         /// <param name="customerInfo">修改信息对象</param>
         /// <returns></returns>
+        [HttpPost]
+        [Route("api/customers/update-customer")]
         public HttpResponseMessage UpdateCustomer(int ? RoleID,Customer customerInfo)
         {
             try
@@ -173,6 +175,38 @@ namespace FenjiuCapstone.Controllers
             {
 
                 return JsonResponseHelper.CreateJsonResponse(new { success = false, message = ex.Message });
+            }
+        }
+        #endregion
+
+        #region 5.删除买家信息 Create By Zane Xu 2025-3-7
+        /// <summary>
+        /// 删除买家信息
+        /// </summary>
+        /// <param name="id">客户ID</param>
+        /// <returns></returns>
+        [HttpPost]
+        [Route("api/customers/delete-customer")]
+        public HttpResponseMessage DeleteCustomer(int ? id)
+        {
+            try
+            {
+                if (!id.HasValue)
+                {
+                    return JsonResponseHelper.CreateJsonResponse(new { success = false, message = nameof(id) + "变量未上传" });
+                }
+                string sql = $"DELETE FROM Customers WHERE CustomerID = {id}";
+                int rowsAffected = new DbAccess().Execute(sql);
+                if (rowsAffected > 0)
+                {
+                    return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "删除成功" });
+                }
+                return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "删除失败" });
+            }
+            catch (Exception ex)
+            {
+                return JsonResponseHelper.CreateJsonResponse(new { success = false, message = ex.Message });
+             
             }
         }
         #endregion
