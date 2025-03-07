@@ -89,7 +89,7 @@ namespace FenjiuCapstone.Controllers
                     });
                 }
             }
-            if (customers == null && customers.Count == 0 )
+            if (customers == null || customers.Count == 0 )
             {
                 return JsonResponseHelper.CreateJsonResponse(new { success = true, message =  "未能找到数据！" });
             }
@@ -97,6 +97,7 @@ namespace FenjiuCapstone.Controllers
             return JsonResponseHelper.CreateJsonResponse(new { success = true, data = customers });
         }
         #endregion
+
 
     }
 }
