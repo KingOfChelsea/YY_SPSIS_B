@@ -59,7 +59,7 @@ namespace FenjiuCapstone.Controllers
                     {
                         // 如果查询到结果，返回客户名称
                         CustomerName = reader.GetString("CustomerName");
-                        
+
                     }
                     else
                     {
@@ -126,6 +126,11 @@ namespace FenjiuCapstone.Controllers
         #endregion
 
         #region 3.创建订单（包含订单明细）Created By Zane Xu 2025-3-11
+        /// <summary>
+        /// 创建订单（包含订单明细）
+        /// </summary>
+        /// <param name="order"></param>
+        /// <returns></returns>
         [HttpPost]
         [Route("api/salesorders")]
         public HttpResponseMessage CreateSalesOrder([FromBody] SalesOrder order)
@@ -141,10 +146,10 @@ namespace FenjiuCapstone.Controllers
                         // 1. 插入一条订单
                         string orderSql = $"INSERT INTO SalesOrders (CustomerID, OrderDate, TotalAmount, Status) " +
                                           $"VALUES ({order.CustomerID}, NOW(), {order.TotalAmount}, '{order.Status}')";
-                        var cmdOrder = DbAccess.orderCmd(orderSql,transaction);
+                        var cmdOrder = DbAccess.orderCmd(orderSql, transaction);
                         cmdOrder.ExecuteNonQuery();
                         int orderId = (int)cmdOrder.LastInsertedId; //最新插入orderId
-                         // 2. 插入订单明细
+                                                                    // 2. 插入订单明细
                         foreach (var detail in order.OrderDetails)
                         {
                             string detailSql = $"INSERT INTO SalesOrderDetails (OrderID, ProductID, Quantity, Price, SubTotal) " +
@@ -162,9 +167,45 @@ namespace FenjiuCapstone.Controllers
                         return JsonResponseHelper.CreateJsonResponse(new { success = false, message = ex.Message });
                     }
                 }
-                }
             }
         }
         #endregion
+
+        #region 4. 更新订单状态 Created By Zane Xu 2025-3-11 
+        /// <summary>
+        /// 更新订单状态
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="status"></param>
+        /// <returns></returns>
+        [HttpPut]
+        [Route("api/salesorders/{id}/status")]
+        public HttpResponseMessage UpdateOrderStatus(int id, [FromBody] string status)
+        {
+            string sql = $"UPDATE SalesOrders SET Status = '{status}' WHERE OrderID = {id}";
+            int rowsAffected = new DbAccess().Execute(sql);
+
+            if (rowsAffected > 0)
+                return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "订单状态更新成功" });
+
+            return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "订单未找到或更新失败" });
+        }
+        #endregion
+
+        #region 5.删除订单 Created By Zane Xu 2025-3-11
+        [HttpDelete]
+        [Route("api/salesorders/{id}")]
+        public HttpResponseMessage DeleteSalesOrder(int id)
+        {
+            string sql = $"DELETE FROM SalesOrders WHERE OrderID = {id}";
+            int rowsAffected = new DbAccess().Execute(sql);
+
+            if (rowsAffected > 0)
+                return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "订单删除成功" });
+
+            return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "订单未找到" });
+        }
+        #endregion
+
     }
 }
