@@ -165,6 +165,23 @@ namespace FenjiuCapstone.Controllers
                 }
             }
         }
+    #endregion
+
+        #region 4. 更新订单状态 Created By Zane Xu 2025-3-11 
+        [HttpPut]
+        [Route("api/salesorders/{id}/status")]
+        public HttpResponseMessage UpdateOrderStatus(int id, string status)
+        {
+
+        string sql = $"UPDATE SalesOrders SET Status = '{status}' WHERE OrderID = {id}";
+        int rowsAffected = new DbAccess().Execute(sql);
+
+        if (rowsAffected > 0)
+            return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "订单状态更新成功" });
+
+        return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "订单未找到或更新失败" });
+        }
         #endregion
-    }
+
+
 }
