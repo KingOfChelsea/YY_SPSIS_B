@@ -9,6 +9,9 @@ using System.Web.Http;
 
 namespace FenjiuCapstone.Controllers
 {
+    /// <summary>
+    /// 客户API接口（增删改查） CustomersController
+    /// </summary>
     public class CustomersController : ApiController
     {
         #region 1.获取所有买家信息 Created By Zane Xu 2025-3-6 
@@ -179,7 +182,7 @@ namespace FenjiuCapstone.Controllers
         }
         #endregion
 
-        #region 5.删除买家信息 Create By Zane Xu 2025-3-7
+        #region 5.删除买家信息（直接SQL_DELET方法删除） Create By Zane Xu 2025-3-7
         /// <summary>
         /// 删除买家信息
         /// </summary>
