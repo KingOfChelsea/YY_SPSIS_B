@@ -124,5 +124,47 @@ namespace FenjiuCapstone.Controllers
 
         }
         #endregion
+
+        #region 3.创建订单（包含订单明细）Created By Zane Xu 2025-3-11
+        [HttpPost]
+        [Route("api/salesorders")]
+        public HttpResponseMessage CreateSalesOrder([FromBody] SalesOrder order)
+        {
+            if (order == null || order.OrderDetails == null || order.OrderDetails.Count == 0)
+                return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "订单信息不完整" });
+            using (var connection = DbAccess.connectingMySql())
+            {
+                using (var transaction = DbAccess.sqltransaction(connection))
+                {
+                    try
+                    {
+                        // 1. 插入一条订单
+                        string orderSql = $"INSERT INTO SalesOrders (CustomerID, OrderDate, TotalAmount, Status) " +
+                                          $"VALUES ({order.CustomerID}, NOW(), {order.TotalAmount}, '{order.Status}')";
+                        var cmdOrder = DbAccess.orderCmd(orderSql,transaction);
+                        cmdOrder.ExecuteNonQuery();
+                        int orderId = (int)cmdOrder.LastInsertedId; //最新插入orderId
+                         // 2. 插入订单明细
+                        foreach (var detail in order.OrderDetails)
+                        {
+                            string detailSql = $"INSERT INTO SalesOrderDetails (OrderID, ProductID, Quantity, Price, SubTotal) " +
+                                               $"VALUES ({orderId}, {detail.ProductID}, {detail.Quantity}, {detail.Price}, {detail.SubTotal})";
+                            var cmdDetail = DbAccess.orderCmd(detailSql, transaction);
+                            cmdDetail.ExecuteNonQuery();
+                        }
+                        transaction.Commit();
+                        return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "订单创建成功", orderId });
+
+                    }
+                    catch (System.Exception ex)
+                    {
+                        transaction.Rollback();
+                        return JsonResponseHelper.CreateJsonResponse(new { success = false, message = ex.Message });
+                    }
+                }
+                }
+            }
+        }
+        #endregion
     }
 }
