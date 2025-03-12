@@ -36,8 +36,11 @@ namespace FenjiuCapstone.Models.Sales
         public string Address { get; set; }
 
         /// <summary>
-        /// 客户创建时间
+        /// 客户创建时间 
+        /// 使用 UTC 时间以避免时区问题，默认值为当前 UTC 时间。
         /// </summary>
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        
     }
 }
