@@ -162,7 +162,7 @@ namespace FenjiuCapstone.Controllers
                 }
                 // 判断权限是否足够
                 //string QuerySql = $@"Select * Form ROLES WHERE RoleID  = {RoleID} ";
-                string UpdateSql = $@"UPDATE Customers SET CustomerName ={customerInfo.CustomerName},ContactNumber ={customerInfo.ContactNumber},Email ={customerInfo.Email},Address={customerInfo.Address} WHERE CustomerID ={customerInfo.CustomerID}";
+                string UpdateSql = $@"UPDATE Customers SET CustomerName ='{customerInfo.CustomerName}',ContactNumber ='{customerInfo.ContactNumber}',Email ='{customerInfo.Email}',Address='{customerInfo.Address}' WHERE CustomerID ={customerInfo.CustomerID}";
                 //if (RoleID==Utils.EnumAccessModCustomer.ModCustomer.SaleManagers)
                 //{
 
@@ -213,5 +213,7 @@ namespace FenjiuCapstone.Controllers
             }
         }
         #endregion
+
+        
     }
 }
