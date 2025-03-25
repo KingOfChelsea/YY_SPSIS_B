@@ -1,4 +1,5 @@
 ﻿using FenjiuCapstone.Models.Sales;
+using MySql.Data.MySqlClient;
 using sales_managers.Common;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -43,85 +44,126 @@ namespace FenjiuCapstone.Controllers
         #endregion
 
         #region 2.获取指定订单（包含明细）Created By Zane Xu 2025-3-7
+        /// <summary>
+        /// 获取指定订单，指定查询
+        /// </summary>
+        /// <param name="criteria"></param>
+        /// <returns></returns>
         [HttpPost]
         [Route("api/salesorders/search")]
         public HttpResponseMessage SearchSalesOrders([FromBody] SalesOrderSearchCriteria criteria)
         {
             List<SalesOrder> orders = new List<SalesOrder>();
-            string sql = "SELECT so.* FROM SalesOrders so JOIN Customers c ON so.CustomerID = c.CustomerID WHERE 1=1";
-            string CustomerName = null;
+            string sql = @"
+                        SELECT so.*, c.CustomerName
+                        FROM SalesOrders so
+                        JOIN Customers c ON so.CustomerID = c.CustomerID
+                        WHERE 1=1";
+
+            List<MySqlParameter> parameters = new List<MySqlParameter>();
+
             if (criteria.CustomerID != null)
             {
-                string Sql_Select_CustomerName = $@"select CustomerName FROM customers c where c.CustomerID = '{criteria.CustomerID}' ";
-                using (var reader = DbAccess.read(Sql_Select_CustomerName))
-                {
-                    if (reader.Read())
-                    {
-                        // 如果查询到结果，返回客户名称
-                        CustomerName = reader.GetString("CustomerName");
-
-                    }
-                    else
-                    {
-                        // 如果查询结果为空，返回未找到客户信息
-                        return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "客户ID不存在或输入有误，请联系管理员确认" });
-                    }
-                    sql += $" AND so.CustomerID = '{criteria.CustomerID}'";
-                }
+                sql += " AND so.CustomerID = @CustomerID";
+                parameters.Add(new MySqlParameter("@CustomerID", criteria.CustomerID));
             }
+            else if (!string.IsNullOrEmpty(criteria.CustomerName))
+            {
+                sql += " AND c.CustomerName LIKE @CustomerName";
+                parameters.Add(new MySqlParameter("@CustomerName", $"%{criteria.CustomerName}%"));
+            }
+
             if (!string.IsNullOrEmpty(criteria.Status))
-                sql += $" AND so.Status = '{criteria.Status}'";
+            {
+                sql += " AND so.Status = @Status";
+                parameters.Add(new MySqlParameter("@Status", criteria.Status));
+            }
 
             if (criteria.MinTotalAmount.HasValue)
-                sql += $" AND so.TotalAmount >= {criteria.MinTotalAmount.Value}";
+            {
+                sql += " AND so.TotalAmount >= @MinTotalAmount";
+                parameters.Add(new MySqlParameter("@MinTotalAmount", criteria.MinTotalAmount.Value));
+            }
 
             if (criteria.MaxTotalAmount.HasValue)
-                sql += $" AND so.TotalAmount <= {criteria.MaxTotalAmount.Value}";
+            {
+                sql += " AND so.TotalAmount <= @MaxTotalAmount";
+                parameters.Add(new MySqlParameter("@MaxTotalAmount", criteria.MaxTotalAmount.Value));
+            }
 
             if (criteria.OrderDateRange != null && criteria.OrderDateRange.Length == 2)
-                sql += $" AND so.OrderDate BETWEEN '{criteria.OrderDateRange[0]:yyyy-MM-dd HH:mm:ss}' " +
-                       $"AND '{criteria.OrderDateRange[1]:yyyy-MM-dd HH:mm:ss}'";
-
-            using (var reader = DbAccess.read(sql))
             {
-                while (reader.Read())
-                {
-                    orders.Add(new SalesOrder
-                    {
-                        OrderID = reader.GetInt32("OrderID"),
-                        CustomerID = reader.GetInt32("CustomerID"),
-                        OrderDate = reader.GetDateTime("OrderDate"),
-                        TotalAmount = reader.GetDecimal("TotalAmount"),
-                        Status = reader.GetString("Status")
-                    });
-                }
+                sql += " AND so.OrderDate BETWEEN @StartDate AND @EndDate";
+                parameters.Add(new MySqlParameter("@StartDate", criteria.OrderDateRange[0]));
+                parameters.Add(new MySqlParameter("@EndDate", criteria.OrderDateRange[1]));
             }
-            if (orders.Count == 0)
-                return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "未找到符合条件的订单" });
-            // 查询订单明细
-            foreach (var order in orders)
-            {
-                string detailSql = $"SELECT * FROM SalesOrderDetails WHERE OrderID = {order.OrderID}";
-                order.OrderDetails = new List<SalesOrderDetail>();
 
-                using (var reader = DbAccess.read(detailSql))
+            // 查询订单
+            using (var connection = DbAccess.connectingMySql())
+            {
+                using (var cmd = new MySqlCommand(sql, connection))
                 {
-                    while (reader.Read())
+                    cmd.Parameters.AddRange(parameters.ToArray());
+
+                    using (var reader = cmd.ExecuteReader())
                     {
-                        order.OrderDetails.Add(new SalesOrderDetail
+                        while (reader.Read())
                         {
-                            DetailID = reader.GetInt32("DetailID"),
-                            OrderID = reader.GetInt32("OrderID"),
-                            ProductID = reader.GetInt32("ProductID"),
-                            Quantity = reader.GetInt32("Quantity"),
-                            Price = reader.GetDecimal("Price"),
-                            SubTotal = reader.GetDecimal("SubTotal")
-                        });
+                            orders.Add(new SalesOrder
+                            {
+                                OrderID = reader.GetInt32("OrderID"),
+                                CustomerID = reader.GetInt32("CustomerID"),
+                                CustomerName = reader.GetString("CustomerName"), // 获取客户名称
+                                OrderDate = reader.GetDateTime("OrderDate"),
+                                TotalAmount = reader.GetDecimal("TotalAmount"),
+                                Status = reader.GetString("Status"),
+                                OrderDetails = new List<SalesOrderDetail>() // 预初始化订单详情
+                            });
+                        }
                     }
                 }
             }
-            return JsonResponseHelper.CreateJsonResponse(new { success = true, data = orders });
 
+            if (orders.Count == 0)
+                return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "未找到符合条件的订单" });
+
+            // 查询订单明细（包含产品名称）
+            foreach (var order in orders)
+            {
+                string detailSql = @"
+                                    SELECT sod.*, p.ProductName 
+                                    FROM SalesOrderDetails sod
+                                    JOIN Products p ON sod.ProductID = p.ProductID
+                                    WHERE sod.OrderID = @OrderID";
+
+                using (var connection = DbAccess.connectingMySql())
+                {
+                    using (var cmd = new MySqlCommand(detailSql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@OrderID", order.OrderID);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                order.OrderDetails.Add(new SalesOrderDetail
+                                {
+                                    DetailID = reader.GetInt32("DetailID"),
+                                    OrderID = reader.GetInt32("OrderID"),
+                                    ProductID = reader.GetInt32("ProductID"),
+                                    ProductName = reader.GetString("ProductName"), // 获取产品名称
+                                    Quantity = reader.GetInt32("Quantity"),
+                                    Price = reader.GetDecimal("Price"),
+                                    SubTotal = reader.GetDecimal("SubTotal")
+                                });
+                            }
+                        }
+                    }
+                }
+           
+            }
+
+            return JsonResponseHelper.CreateJsonResponse(new { success = true, data = orders });
         }
         #endregion
 
