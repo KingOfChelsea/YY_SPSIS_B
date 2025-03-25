@@ -15,6 +15,7 @@ namespace FenjiuCapstone.Models.Sales
         public DateTime OrderDate { get; set; }
         public decimal TotalAmount { get; set; }
         public string Status { get; set; }
+        public string CustomerName { get; set; }
         public List<SalesOrderDetail> OrderDetails { get; set; } = new List<SalesOrderDetail>();
     }
 }
