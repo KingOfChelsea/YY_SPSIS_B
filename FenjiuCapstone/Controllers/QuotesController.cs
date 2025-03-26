@@ -28,7 +28,7 @@ namespace FenjiuCapstone.Controllers
             SELECT so.OrderID, so.OrderDate, so.TotalAmount, so.Status, c.CustomerName
             FROM SalesOrders so
             JOIN Customers c ON so.CustomerID = c.CustomerID
-            WHERE c.Email = @CustomerEmail";
+            WHERE c.Email = @CustomerEmail AND so.OrderID = @OrderID";
 
             List<SalesOrder> orders = new List<SalesOrder>();
             using (var connection = DbAccess.connectingMySql())
@@ -36,7 +36,7 @@ namespace FenjiuCapstone.Controllers
                 using (var cmd = new MySqlCommand(sql, connection))
                 {
                     cmd.Parameters.AddWithValue("@CustomerEmail", request.CustomerEmail);
-
+                    cmd.Parameters.AddWithValue("@OrderID", request.OrderId);
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
