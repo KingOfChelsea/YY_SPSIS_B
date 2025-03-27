@@ -121,7 +121,7 @@ namespace FenjiuCapstone.Controllers
                             }
                         }
                     }
-                }
+                
 
                 // 2. 校验验证码是否匹配且是否在有效期内
                 if (string.IsNullOrEmpty(storedVerificationCode))
@@ -140,10 +140,47 @@ namespace FenjiuCapstone.Controllers
                 }
 
                 // 3. 校验成功，生成Token（使用JWT生成，或者其他方式）
-                var token = Tools.Token.GenerateToken("my",1,1,"13178822476") ; // 这里使用JWT生成token，可以使用你自己的生成方式
+                string queryUserInfoSql = @" SELECT 
+                                    u.EmployeeID, u.RoleID, u.Username, r.RoleName, e.EmployeeName, e.Position, u.Phone 
+                                FROM 
+                                    users u 
+                                JOIN roles r ON r.RoleID = u.RoleID 
+                                JOIN employees e ON u.EmployeeID = e.EmployeeID WHERE UserId = @UserId ";
+                    var cmdInfo = DbAccess.command(queryUserInfoSql, connection);
+                    cmdInfo.Parameters.AddWithValue("@UserId", userId);
+                    using (var reader = cmdInfo.ExecuteReader())
+                    {
+                            if(reader.Read())
+                            {
+                                // 从数据库中读取用户信息 
+                                var userInfo = new UserInfo
+                                {
+                                    EmployeeID = reader.GetInt32(reader.GetOrdinal("EmployeeID")),
+                                    RoleID = reader.GetInt32(reader.GetOrdinal("RoleID")),
+                                    Username = reader.GetString(reader.GetOrdinal("Username")),
+                                    RoleName = reader.GetString(reader.GetOrdinal("RoleName")),
+                                    EmployeeName = reader.GetString(reader.GetOrdinal("EmployeeName")),
+                                    Position = reader.GetString(reader.GetOrdinal("Position")),
+                                    Phone = reader.GetString(reader.GetOrdinal("Phone"))
+                                };
 
-                // 4. 返回生成的token
-                return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "验证码验证成功", token = token });
+                            // 使用 UserInfo 对象生成 Token 
+                            var token = Tools.Token.GenerateToken(userInfo);
+                            // 4. 返回生成的token
+                            return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "验证码验证成功", token = token });
+                        }
+                        else
+                        {
+                            return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "用户信息未找到" });
+                        }
+
+                        
+                    }
+                    
+                    //var token = Tools.Token.GenerateToken("my",1,1,"13178822476") ; // 这里使用JWT生成token，可以使用你自己的生成方式
+                }
+               
+               
             }
             catch (Exception ex)
             {
@@ -162,16 +199,10 @@ namespace FenjiuCapstone.Controllers
             try
             {
                 // 解析token并获取用户信息
-                var userInfo = Tools.Token.GetUserInfoFromToken(token);
+                UserInfo userInfo = Tools.Token.GetUserInfoFromToken(token);
 
                 return JsonResponseHelper.CreateJsonResponse(new { success = true,
-                    data = new
-                    {
-                        username = userInfo.Username,
-                        roleID = userInfo.RoleID,
-                        employeeID = userInfo.EmployeeID,
-                        phone = userInfo.Phone
-                    }
+                    data=userInfo
                 });
             }
             catch (Exception ex)
