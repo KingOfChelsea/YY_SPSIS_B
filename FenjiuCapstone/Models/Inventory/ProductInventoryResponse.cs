@@ -7,6 +7,7 @@ namespace FenjiuCapstone.Models.Inventory
 {
     public class ProductInventoryResponse
     {
+        public int ProductID { get; set; }
         public string ProductName { get; set; } // 产品名称
         public int TotalQuantity { get; set; } // 入库总数量
     }

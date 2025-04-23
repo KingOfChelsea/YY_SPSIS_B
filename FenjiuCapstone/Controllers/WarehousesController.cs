@@ -251,11 +251,10 @@ namespace FenjiuCapstone.Controllers
                 }
 
                 // 2. 查询该产品在各个仓库的已分配库存量
-                string getAllocatedStockSql = @"
-            SELECT WarehouseID, SUM(Quantity) AS AllocatedQuantity
-            FROM InventoryIn
-            WHERE ProductID = @ProductID
-            GROUP BY WarehouseID";
+                    string getAllocatedStockSql = @" SELECT WarehouseID, SUM(Quantity) AS AllocatedQuantity
+                                                    FROM InventoryIn
+                                                    WHERE ProductID = @ProductID
+                                                    GROUP BY WarehouseID";
 
                 int totalAllocatedStock = 0;
                 using (var connection = DbAccess.connectingMySql())
@@ -282,28 +281,75 @@ namespace FenjiuCapstone.Controllers
                     return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "分配数量不能超过剩余库存量" });
                 }
 
-                // 5. 插入库存分配记录到 InventoryIn 表
-                string insertInventoryInSql = @"
-            INSERT INTO InventoryIn (WarehouseID, ProductID, Quantity, SupplierID)
-            VALUES (@WarehouseID, @ProductID, @Quantity, @SupplierID)";
+
+                // 5. 插入库存分配记录到 InventoryIn 表和Inventory 表 Add By Zane Xu 2025-3-27
 
                 using (var connection = DbAccess.connectingMySql())
                 {
-                    using (var cmd = new MySqlCommand(insertInventoryInSql, connection))
+                    var transaction = connection.BeginTransaction(); // 开启事务
+                    try
                     {
-                        cmd.Parameters.AddWithValue("@WarehouseID", request.WarehouseID);
-                        cmd.Parameters.AddWithValue("@ProductID", request.ProductID);
-                        cmd.Parameters.AddWithValue("@Quantity", request.Quantity);
-                        cmd.Parameters.AddWithValue("@SupplierID", request.SupplierID);
-                        cmd.ExecuteNonQuery();
+                        string insertInventoryInSql = @"
+                    INSERT INTO InventoryIn (WarehouseID, ProductID, Quantity, SupplierID)
+                    VALUES (@WarehouseID, @ProductID, @Quantity, @SupplierID)";
+                        using (var cmd = new MySqlCommand(insertInventoryInSql, connection))
+                        {
+                            cmd.Parameters.AddWithValue("@WarehouseID", request.WarehouseID);
+                            cmd.Parameters.AddWithValue("@ProductID", request.ProductID);
+                            cmd.Parameters.AddWithValue("@Quantity", request.Quantity);
+                            cmd.Parameters.AddWithValue("@SupplierID", request.SupplierID);
+                            cmd.ExecuteNonQuery();
+                        }
+                        string queryInventoryWarehouseAndProductID = @"Select Count(*) from inventory inv WHERE inv.WarehouseID = @WarehouseID AND inv.ProductID = @ProductID";
+                        using (var cmdQueryInventoryWarehouseAndProductIDReader = new MySqlCommand(queryInventoryWarehouseAndProductID, connection, transaction))
+                        {
+                            cmdQueryInventoryWarehouseAndProductIDReader.Parameters.AddWithValue("@WarehouseID", request.WarehouseID);
+                            cmdQueryInventoryWarehouseAndProductIDReader.Parameters.AddWithValue("@ProductID", request.ProductID);
+                            int count = Convert.ToInt32(cmdQueryInventoryWarehouseAndProductIDReader.ExecuteScalar());
+                            if (count == 0)
+                            {
+                                string insertInventoryTargetStockSql = @"
+                                INSERT INTO Inventory (WarehouseID, ProductID, Quantity)
+                                VALUES (@WarehouseID, @ProductID, @Quantity)"; // 如果已经存在该产品库存，则增加数量
+
+                                using (var cmdUpdateTargetStock = new MySqlCommand(insertInventoryTargetStockSql, connection, transaction))
+                                {
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@WarehouseID", request.WarehouseID);
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@ProductID", request.ProductID);
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@Quantity", request.Quantity);
+                                    cmdUpdateTargetStock.ExecuteNonQuery(); // 更新目标仓库库存
+                                }
+                            }
+                            else
+                            {
+                                string updateInventoryTargetStockSql = @"UPDATE inventory inv 
+                                                                    SET inv.Quantity = inv.Quantity + @Quantity
+                                                                    WHERE
+                                                                      inv.WarehouseID = @WarehouseID
+                                                                      AND inv.ProductID = @ProductID";
+                                using (var cmdUpdateTargetStock = new MySqlCommand(updateInventoryTargetStockSql, connection, transaction))
+                                {
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@WarehouseID", request.WarehouseID);
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@ProductID", request.ProductID);
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@Quantity", request.Quantity);
+                                    cmdUpdateTargetStock.ExecuteNonQuery(); // 更新目标仓库库存
+                                }
+                            }
+                        }
+                        transaction.Commit();
+                        // 6. 返回成功响应
+                        return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "库存分配成功" });
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback(); // 发生异常时，回滚事务
+                        return JsonResponseHelper.CreateJsonResponse(new { success = false, message = $"发生错误：{ex.Message}" });
                     }
                 }
-
-                // 6. 返回成功响应
-                return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "库存分配成功" });
             }
             catch (Exception ex)
             {
+
                 return JsonResponseHelper.CreateJsonResponse(new { success = false, message = ex.Message });
             }
         }
@@ -507,6 +553,7 @@ namespace FenjiuCapstone.Controllers
                                 // 将产品数据添加到当前仓库
                                 warehouse.Products.Add(new ProductInventoryResponse
                                 {
+                                    ProductID = reader.GetInt32("ProductID"),
                                     ProductName = reader.GetString("ProductName"),
                                     TotalQuantity = reader.GetInt32("TotalQuantity")
                                 });
@@ -529,8 +576,7 @@ namespace FenjiuCapstone.Controllers
                 return JsonResponseHelper.CreateJsonResponse(new { success = false, message = ex.Message });
             }
         }
-
-        // 9.创建调拨记录
+        #region 9.创建调拨记录 Created By Zane Xu 2025-2-23
         [HttpPost]
         [Route("api/warehouse/inventory-transfer")]
         public HttpResponseMessage CreateInventoryTransfer([FromBody] InventoryTransferRequest request)
@@ -539,11 +585,11 @@ namespace FenjiuCapstone.Controllers
             {
                 // 1. SQL 查询：检查是否有足够的库存进行调拨 (查询 InventoryIn 表)
                 string checkStockSql = @"
-            SELECT SUM(Quantity) 
-            FROM InventoryIn 
-            WHERE WarehouseID = @FromWarehouseID 
-            AND ProductID = @ProductID 
-            AND Quantity >= @Quantity";
+                        SELECT SUM(Quantity) 
+                        FROM InventoryIn 
+                        WHERE WarehouseID = @FromWarehouseID 
+                        AND ProductID = @ProductID 
+                        AND Quantity >= @Quantity";
 
                 using (var connection = DbAccess.connectingMySql())
                 {
@@ -584,6 +630,8 @@ namespace FenjiuCapstone.Controllers
             }
         }
 
+        #endregion
+
         #region 10.审核调拨记录时更新库存  zhenyu xu 2025/2/23
         // 10.审核调拨记录时更新库存
         [HttpPost]
@@ -604,7 +652,7 @@ namespace FenjiuCapstone.Controllers
                                 SELECT Quantity, ProductID, FromWarehouseID, ToWarehouseID
                                 FROM InventoryTransfers 
                                 WHERE TransferID = @TransferID 
-                                AND Status = 'Pending'";
+                                AND Status = 'Approved'";
 
                         int quantityToTransfer, productId, fromWarehouseId, toWarehouseId;
 
@@ -667,6 +715,16 @@ namespace FenjiuCapstone.Controllers
                             remainingQuantity -= stock.StockQuantity; // 计算剩余要扣减的数量
                         }
 
+                        //针对inventory表减少库存 Add By Zane Xu 2025-3-36
+                        string updateInventoryStockSql = @"UPDATE Inventory SET Quantity = Quantity - @quantityToTransfer where WarehouseID = @FromWarehouseID AND ProductID = @ProductID ";
+                        using (var cmdUpdateInventoryStock = new MySqlCommand(updateInventoryStockSql, connection, transaction))
+                        {
+                            cmdUpdateInventoryStock.Parameters.AddWithValue("@FromWarehouseID", fromWarehouseId);
+                            cmdUpdateInventoryStock.Parameters.AddWithValue("@ProductID", productId);
+                            cmdUpdateInventoryStock.Parameters.AddWithValue("@quantityToTransfer", quantityToTransfer);
+                            cmdUpdateInventoryStock.ExecuteNonQuery(); // 更新目标仓库库存
+                        }
+
                         // 5. 检查库存是否足够
                         if (remainingQuantity > 0)
                         {
@@ -674,11 +732,11 @@ namespace FenjiuCapstone.Controllers
                             return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "库存不足，无法完成调拨" });
                         }
 
-                        // 6. 更新调拨记录状态，标记为 "Approved"
+                        // 6. 更新调拨记录状态，标记为 "Completed"
                         string updateTransferStatusSql = @"
-                UPDATE InventoryTransfers 
-                SET Status = 'Approved' 
-                WHERE TransferID = @TransferID";
+                                    UPDATE InventoryTransfers 
+                                    SET Status = 'Completed' 
+                                    WHERE TransferID = @TransferID";
 
                         using (var cmdUpdateTransferStatus = new MySqlCommand(updateTransferStatusSql, connection, transaction))
                         {
@@ -686,7 +744,7 @@ namespace FenjiuCapstone.Controllers
                             cmdUpdateTransferStatus.ExecuteNonQuery(); // 执行更新语句
                         }
 
-                        // 7. 目标仓库增加库存  Inventory
+                        // 7. 目标仓库增加库存  InventoryIn 
                         string updateTargetStockSql = @"
                                 INSERT INTO InventoryIn (WarehouseID, ProductID, Quantity)
                                 VALUES (@ToWarehouseID, @ProductID, @Quantity)
@@ -699,7 +757,43 @@ namespace FenjiuCapstone.Controllers
                             cmdUpdateTargetStock.Parameters.AddWithValue("@Quantity", quantityToTransfer);
                             cmdUpdateTargetStock.ExecuteNonQuery(); // 更新目标仓库库存
                         }
+                        // 针对inventory表增加库存  Add By Zane Xu 2025-3-26 
+                        string queryInventoryWarehouseAndProductID = @"Select Count(*) from inventory inv WHERE inv.WarehouseID = @ToWarehouseID AND inv.ProductID = @ProductID";
+                        using (var cmdQueryInventoryWarehouseAndProductIDReader = new MySqlCommand(queryInventoryWarehouseAndProductID, connection, transaction))
+                        {
+                            cmdQueryInventoryWarehouseAndProductIDReader.Parameters.AddWithValue("@ToWarehouseID", toWarehouseId);
+                            cmdQueryInventoryWarehouseAndProductIDReader.Parameters.AddWithValue("@ProductID", productId);
+                            int count = Convert.ToInt32(cmdQueryInventoryWarehouseAndProductIDReader.ExecuteScalar());
+                            if (count == 0)
+                            {
+                                string insertInventoryTargetStockSql = @"
+                                INSERT INTO Inventory (WarehouseID, ProductID, Quantity)
+                                VALUES (@ToWarehouseID, @ProductID, @Quantity)"; // 如果已经存在该产品库存，则增加数量
 
+                                using (var cmdUpdateTargetStock = new MySqlCommand(insertInventoryTargetStockSql, connection, transaction))
+                                {
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@ToWarehouseID", toWarehouseId);
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@ProductID", productId);
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@Quantity", quantityToTransfer);
+                                    cmdUpdateTargetStock.ExecuteNonQuery(); // 更新目标仓库库存
+                                }
+                            }
+                            else
+                            {
+                                string updateInventoryTargetStockSql = @"UPDATE inventory inv 
+                                                                    SET inv.Quantity = inv.Quantity + @quantityToTransfer
+                                                                    WHERE
+                                                                      inv.WarehouseID = @ToWarehouseID
+                                                                      AND inv.ProductID = @ProductID";
+                                using (var cmdUpdateTargetStock = new MySqlCommand(updateInventoryTargetStockSql, connection, transaction))
+                                {
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@ToWarehouseID", toWarehouseId);
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@ProductID", productId);
+                                    cmdUpdateTargetStock.Parameters.AddWithValue("@quantityToTransfer", quantityToTransfer);
+                                    cmdUpdateTargetStock.ExecuteNonQuery(); // 更新目标仓库库存
+                                }
+                            }
+                        }
                         // 8. 提交事务
                         transaction.Commit();
                         return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "调拨记录已审核，并更新库存" });
@@ -826,6 +920,44 @@ namespace FenjiuCapstone.Controllers
         }
         #endregion
 
+        #region 12.更改调拨记录状态（主管，经理操作） created by xu.zhenyu 2025-3-27
+        [HttpPost]
+        [Route("api/warehouse/change-status")]
+        public HttpResponseMessage ChangeStatus([FromBody] ApproveTransferRequest request)
+        {
+            if (request.Status == "Pending")
+            {
+                string updateStatusSql = @"UPDATE InventoryTransfers SET Status = 'Approved' where TransferID = @TransferID";
+                using (var connection = DbAccess.connectingMySql())
+                {
+                    using (var cmdChangeStatus = new MySqlCommand(updateStatusSql, connection))
+                    {
+                        //cmdChangeStatus.Parameters.AddWithValue("Status", request.Status);
+                        cmdChangeStatus.Parameters.AddWithValue("TransferID", request.TransferID);
+                        cmdChangeStatus.ExecuteNonQuery();
+
+                    }
+                }
+            }
+            return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "审核同意，等待经理处理！" });
+            //if (request.Status == "Approved")
+            //{
+            //    string updateStatusSql = @"UPDATE InventoryTransfers SET Status = '' where TransferID = @TransferID";
+            //    using (var connection = DbAccess.connectingMySql())
+            //    {
+            //        using (var cmdChangeStatus = new MySqlCommand(updateStatusSql, connection))
+            //        {
+            //            //cmdChangeStatus.Parameters.AddWithValue("Status", request.Status);
+            //            cmdChangeStatus.Parameters.AddWithValue("TransferID", request.TransferID);
+            //            cmdChangeStatus.ExecuteNonQuery();
+
+            //        }
+            //    }
+            //    return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "审核同意，等待总经理处理！" });
+            //}
+
+        }
+        #endregion
 
     }
 }

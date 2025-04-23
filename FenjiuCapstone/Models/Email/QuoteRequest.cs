@@ -14,5 +14,10 @@ namespace FenjiuCapstone.Models.Email
         /// 客户邮箱
         /// </summary>
         public string CustomerEmail { get; set; }  // 客户邮箱
+
+        /// <summary>
+        /// 订单信息
+        /// </summary>
+        public int OrderId { get; set; }
     }
 }

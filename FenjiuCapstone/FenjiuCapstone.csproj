@@ -223,14 +223,19 @@
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\LoginController.cs" />
     <Compile Include="Controllers\MenuController.cs" />
+    <Compile Include="Controllers\PermissionsController.cs" />
     <Compile Include="Controllers\ProductsController.cs" />
     <Compile Include="Controllers\PurchaseOrderController.cs" />
+    <Compile Include="Controllers\QuotesController.cs" />
+    <Compile Include="Controllers\RolesController.cs" />
     <Compile Include="Controllers\SalesOrdersController.cs" />
     <Compile Include="Controllers\SupplierController.cs" />
+    <Compile Include="Controllers\UsersController.cs" />
     <Compile Include="Controllers\WarehousesController.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
+    <Compile Include="Models\Email\QuoteRequest.cs" />
     <Compile Include="Models\Feishu\FeishuTokenData.cs" />
     <Compile Include="Models\Feishu\FeishuTokenResponse.cs" />
     <Compile Include="Models\Feishu\FeishuUserResponse.cs" />
@@ -250,15 +255,21 @@
     <Compile Include="Models\Inventory\WarehouseSearchRequest.cs" />
     <Compile Include="Models\Login\LoginRequest.cs" />
     <Compile Include="Models\Login\LoginResponse.cs" />
+    <Compile Include="Models\Login\UserInfo.cs" />
     <Compile Include="Models\Login\UserVerificationCode.cs" />
     <Compile Include="Models\Menu.cs" />
     <Compile Include="Models\MenuRequest.cs" />
     <Compile Include="Models\Order\PurchaseOrder.cs" />
     <Compile Include="Models\Order\PurchaseOrderDetail.cs" />
     <Compile Include="Models\Order\PurchaseOrderQuery.cs" />
+    <Compile Include="Models\Permission\Permission.cs" />
+    <Compile Include="Models\Permission\Role.cs" />
+    <Compile Include="Models\Permission\RolePermission.cs" />
+    <Compile Include="Models\Permission\RolePermissionRequest.cs" />
     <Compile Include="Models\Product\Product.cs" />
     <Compile Include="Models\Product\ProductQueryRequest.cs" />
     <Compile Include="Models\Product\ProductRequest.cs" />
+    <Compile Include="Models\Role\Role.cs" />
     <Compile Include="Models\Sales\Customer.cs" />
     <Compile Include="Models\Sales\CustomerSearchCriteria.cs" />
     <Compile Include="Models\Sales\SalesOrder.cs" />
@@ -266,11 +277,14 @@
     <Compile Include="Models\Sales\SalesOrderSearchCriteria.cs" />
     <Compile Include="Models\SupplierRequest.cs" />
     <Compile Include="Models\SupplierSearchRequest.cs" />
+    <Compile Include="Models\Users\Request\User.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tools\DbAccess.cs" />
     <Compile Include="Tools\FeishuApiService.cs" />
     <Compile Include="Tools\JsonResponseHelper.cs" />
+    <Compile Include="Tools\Password.cs" />
     <Compile Include="Tools\Token.cs" />
+    <Compile Include="Tools\UseEmail.cs" />
     <Compile Include="Tools\UserVerificationService.cs" />
     <Compile Include="Utils\EnumAccessModCustomer.cs" />
   </ItemGroup>
@@ -328,6 +342,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
+    <Folder Include="Models\Users\Response\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="fonts\glyphicons-halflings-regular.woff2" />

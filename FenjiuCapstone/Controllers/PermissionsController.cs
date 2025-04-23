@@ -177,7 +177,7 @@ namespace FenjiuCapstone.Controllers
                         var cmd = new MySqlCommand(sql, connection, transaction);
                         cmd.Parameters.AddWithValue("@PermissionName", request.PermissionName);
                         cmd.Parameters.AddWithValue("@ParentID", (object)request.ParentID ?? DBNull.Value);
-                        cmd.Parameters.AddWithValue("@PermissionName", request.PermissionName);
+                        cmd.Parameters.AddWithValue("@Path", request.Path);
                         cmd.Parameters.AddWithValue("@Icon", "Icon");
                         cmd.Parameters.AddWithValue("@IsEnabled", request.IsEnabled);
                         cmd.ExecuteNonQuery();

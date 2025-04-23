@@ -1,4 +1,5 @@
-﻿using Microsoft.IdentityModel.Logging;
+﻿using FenjiuCapstone.Models.Login;
+using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -22,18 +23,24 @@ namespace FenjiuCapstone.Tools
         /// </summary>
         /// <param name="username">用户名</param>
         /// <param name="roleID">角色ID</param>
-        /// <param name="employeeID">员工ID</param>
-        /// <param name="phone">手机号</param>
-        /// <returns></returns> 
-        public static string GenerateToken(string username, int roleID, int employeeID, string phone)
+        /// <param name="employeeID">工号</param>
+        /// <param name="phone">电话</param>
+        /// <param name="RoleName">角色姓名</param>
+        /// <param name="Position">岗位</param>
+        /// <param name="EmployeeName">职工姓名</param>
+        /// <returns></returns>
+        public static string GenerateToken(UserInfo userInfo)
         {
             var claims = new[]
-            {
-            new Claim(ClaimTypes.Name, username),
-            new Claim(ClaimTypes.Role, roleID.ToString()),
-            new Claim("EmployeeID", employeeID.ToString()),
-            new Claim("Phone", phone)
-        };
+        {
+                new Claim(ClaimTypes.Name, userInfo.Username),
+                new Claim(ClaimTypes.Role, userInfo.RoleID.ToString()),
+                new Claim("EmployeeID", userInfo.EmployeeID.ToString()),
+                new Claim("Phone", userInfo.Phone),
+                new Claim("RoleName", userInfo.RoleName),
+                new Claim("Position", userInfo.Position),
+                new Claim("EmployeeName", userInfo.EmployeeName)
+         };
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretKey));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -42,7 +49,7 @@ namespace FenjiuCapstone.Tools
                 issuer: "your-app",   // 设置发行者
                 audience: "your-app-users", // 设置接收者
                 claims: claims,
-                expires: DateTime.Now.AddHours(1), // 设置过期时间
+                expires: DateTime.Now.AddHours(8), // 设置过期时间
                 signingCredentials: credentials
             );
 
@@ -93,15 +100,21 @@ namespace FenjiuCapstone.Tools
                 throw new Exception("Token validation failed", ex);
             }
         }
-        public static (string Username, int RoleID, int EmployeeID, string Phone) GetUserInfoFromToken(string token)
+        public static UserInfo GetUserInfoFromToken(string token)
         {
             var principal = ParseToken(token);
-            var username = principal.FindFirst(ClaimTypes.Name)?.Value;
-            var roleID = int.Parse(principal.FindFirst(ClaimTypes.Role)?.Value);
-            var employeeID = int.Parse(principal.FindFirst("EmployeeID")?.Value);
-            var phone = principal.FindFirst("Phone")?.Value;
+            UserInfo userinfo = new UserInfo
+            {
+                EmployeeID = int.Parse(principal.FindFirst("EmployeeID")?.Value),
+                RoleID = int.Parse(principal.FindFirst(ClaimTypes.Role)?.Value),
+                Username = principal.FindFirst(ClaimTypes.Name)?.Value,
+                RoleName = principal.FindFirst("RoleName")?.Value,
+                EmployeeName = principal.FindFirst("EmployeeName")?.Value,
+                Position = principal.FindFirst("Position")?.Value,
+                Phone = principal.FindFirst("Phone")?.Value
 
-            return (username, roleID, employeeID, phone);
+            };
+            return userinfo;
         }
     }
 }

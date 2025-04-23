@@ -191,7 +191,7 @@ namespace FenjiuCapstone.Controllers
 
         #endregion
 
-        #region 3.用户传入token验证码免登录
+        #region 3.用户传入token验证码免登录 Created By Zane Xu 2025-2-28
         [HttpPost]
         [Route("api/users/parse-token")]
         public HttpResponseMessage ParseToken(string token)

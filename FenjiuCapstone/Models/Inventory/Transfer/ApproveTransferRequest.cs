@@ -8,5 +8,6 @@ namespace FenjiuCapstone.Models.Inventory.Transfer
     public class ApproveTransferRequest
     {
         public int TransferID { get; set; }
+        public string  Status { get; set; }
     }
 }

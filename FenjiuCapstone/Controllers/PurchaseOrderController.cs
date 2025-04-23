@@ -158,7 +158,7 @@ namespace FenjiuCapstone.Controllers
                 sql.Append(" ORDER BY po.CreatedAt DESC");
                 // 打印生成的 SQL 语句
                 //Console.WriteLine();
-                Debug.WriteLine("Generated SQL: " + sql.ToString() + query.SupplierName);
+                //Debug.WriteLine("Generated SQL: " + sql.ToString() + query.SupplierName);
                 // 执行 SQL 查询
                 using (var cmd = DbAccess.command(sql.ToString(), connection))
                 {
@@ -213,5 +213,80 @@ namespace FenjiuCapstone.Controllers
         }
         #endregion
 
+        #region 3.采购单验收入库（增加库存）
+        [HttpPost]
+        [Route("api/purchaseorders/addstock")]
+        public HttpResponseMessage AddStocks(int PurchaseOrderID)
+        {
+            using (var connection = DbAccess.connectingMySql())
+            {
+                using (var transaction = connection.BeginTransaction()) // ✅ 启动事务，保证数据一致性
+                {
+                    try
+                    {
+                        // ✅ 1️⃣ 查询采购订单明细（获取 ProductID 和 Quantity）
+                        string queryOrderSql = @"
+                    SELECT ProductID, SUM(Quantity) AS TotalQuantity
+                    FROM purchaseorderdetails
+                    WHERE PurchaseOrderID = @PurchaseOrderID
+                    GROUP BY ProductID";  // ✅ 直接聚合，减少查询次数
+
+                        Dictionary<int, int> stockUpdates = new Dictionary<int, int>();
+
+                        using (var cmd = new MySqlCommand(queryOrderSql, connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@PurchaseOrderID", PurchaseOrderID);
+
+                            using (var reader = cmd.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    int productId = reader.GetInt32("ProductID");
+                                    int quantity = reader.GetInt32("TotalQuantity"); // ✅ 计算总采购数量
+                                    stockUpdates[productId] = quantity;
+                                }
+                            }
+                        }
+
+                        if (stockUpdates.Count == 0)
+                        {
+                            transaction.Rollback();
+                            return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "未找到对应采购订单的产品信息" });
+                        }
+
+                        // ✅ 2️⃣ 批量更新产品库存
+                        string updateStockSql = "UPDATE products SET StockQuantity = StockQuantity + CASE ProductID ";
+                        foreach (var item in stockUpdates)
+                        {
+                            updateStockSql += $"WHEN {item.Key} THEN {item.Value} ";
+                        }
+                        updateStockSql += "END WHERE ProductID IN (" + string.Join(",", stockUpdates.Keys) + ")";
+
+                        using (var cmd = new MySqlCommand(updateStockSql, connection, transaction))
+                        {
+                            cmd.ExecuteNonQuery();  // ✅ 一次性执行所有更新
+                        }
+
+                        string updateStatusSql = @"Update purchaseorders SET Status = '已入库' WHERE PurchaseOrderID = @PurchaseOrderID ";
+                        using (var cmd = new MySqlCommand(updateStatusSql, connection, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@PurchaseOrderID", PurchaseOrderID);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                            // ✅ 3️⃣ 提交事务
+                            transaction.Commit();
+                        return JsonResponseHelper.CreateJsonResponse(new { success = true, message = "库存已成功更新" });
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        return JsonResponseHelper.CreateJsonResponse(new { success = false, message = "发生错误：" + ex.Message });
+                    }
+                }
+            }
+        }
+
+        #endregion
     }
 }
